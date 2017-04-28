@@ -4,7 +4,6 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import List exposing (..)
-import Html.Lazy exposing (lazy, lazy2)
 import Json.Decode as Json
 
 main =
@@ -14,7 +13,6 @@ main =
         , update = update
         , subscriptions = \_ -> Sub.none
         }
-
 
 
 -- MODELS
@@ -28,24 +26,27 @@ type alias Todo =
 
 
 type alias TodoList =
-    { todos : List Todo
+    { id : Int
     , name : String
+    , todos : List Todo
     }
 
 
 type alias Model =
     { todoLists : List TodoList
     , todoTitle : String
+    , nextTodoListId : TodoListId
+    , nextTodoId : TodoId
     }
 
-
-
+type alias TodoListId = Int
+type alias TodoId = Int
 -- Msg
 
 
 type Msg
     = AddTodoList
-    | AddTodo 
+    | AddTodo TodoListId
     | UpdateTitle String
 
 -- UPDATE
@@ -55,10 +56,10 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         AddTodoList ->
-            ( addNewTodoList model "Todo List 1", Cmd.none )
+            ( addNewTodoList model ("Todo List " ++ toString(model.nextTodoListId)), Cmd.none )
 
-        AddTodo ->
-            ( addNewToDo model, Cmd.none )
+        AddTodo todoListId ->
+            ( addNewToDo model todoListId, Cmd.none )
 
         UpdateTitle title ->
             ({ model | todoTitle = title }, Cmd.none )
@@ -83,7 +84,8 @@ renderTodoList : TodoList -> Html Msg
 renderTodoList todoList =
     div []
         [ h2 [] [ text todoList.name ]
-        , input [ type_ "text", placeholder "Add Your Todo", onEnter AddTodo, onInput UpdateTitle] []
+        , input [ type_ "text", placeholder "Add Your Todo", onInput UpdateTitle] []
+        , button [onClick (AddTodo todoList.id)] [text "Add"]
         , ul [] (List.map renderTodo todoList.todos)
         ]
 
@@ -99,21 +101,21 @@ addNewTodoList : Model -> String -> Model
 addNewTodoList model name =
     let
         newToDoLists =
-            (TodoList [] name) :: model.todoLists
+            (TodoList model.nextTodoListId name []) :: model.todoLists
     in
-        ({ model | todoLists = newToDoLists })
+        ({ model | todoLists = newToDoLists, nextTodoListId = model.nextTodoListId + 1 })
 
-addNewToDo : Model -> Model
-addNewToDo model =
+addNewToDo : Model -> TodoListId -> Model
+addNewToDo model todoListId =
     let
         newToDo =
-            Todo 1 model.todoTitle False
-        todoList = 
-            firstTodoList model.todoLists
+            Todo model.nextTodoId model.todoTitle False
+        todoList =
+            firstTodoList (filter (isIdEqual todoListId) model.todoLists)
         updatedTodoList = { todoList | todos = newToDo :: todoList.todos }
 
     in
-        { model | todoLists = [updatedTodoList] }
+        { model | todoLists = [updatedTodoList], nextTodoId = model.nextTodoId + 1 }
 
 onEnter : Msg -> Attribute Msg
 onEnter msg =
@@ -132,11 +134,15 @@ firstTodoList todoLists =
         Just list ->
             list
         Nothing ->
-            TodoList [] "New List"
+            TodoList 1 "New List" []
+
+isIdEqual : TodoListId -> TodoList -> Bool
+isIdEqual todoListId todoList =
+    todoListId == todoList.id
 
 -- INIT
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( Model [] "", Cmd.none )
+    ( Model [] "" 1 1, Cmd.none )
