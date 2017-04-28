@@ -4,7 +4,8 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import List exposing (..)
-
+import Html.Lazy exposing (lazy, lazy2)
+import Json.Decode as Json
 
 main =
     Html.program
@@ -34,6 +35,7 @@ type alias TodoList =
 
 type alias Model =
     { todoLists : List TodoList
+    , todoTitle : String
     }
 
 
@@ -43,8 +45,8 @@ type alias Model =
 
 type Msg
     = AddTodoList
-
-
+    | AddTodo 
+    | UpdateTitle String
 
 -- UPDATE
 
@@ -55,6 +57,11 @@ update msg model =
         AddTodoList ->
             ( addNewTodoList model "Todo List 1", Cmd.none )
 
+        AddTodo ->
+            ( addNewToDo model, Cmd.none )
+
+        UpdateTitle title ->
+            ({ model | todoTitle = title }, Cmd.none )
 
 
 -- VIEW
@@ -69,14 +76,14 @@ view model =
 
 
 
--- FUNCS
+-- FUNCTIONS
 
 
 renderTodoList : TodoList -> Html Msg
 renderTodoList todoList =
     div []
         [ h2 [] [ text todoList.name ]
-        , input [ type_ "text", placeholder "Add Your Todo"] []
+        , input [ type_ "text", placeholder "Add Your Todo", onEnter AddTodo, onInput UpdateTitle] []
         , ul [] (List.map renderTodo todoList.todos)
         ]
 
@@ -96,11 +103,40 @@ addNewTodoList model name =
     in
         ({ model | todoLists = newToDoLists })
 
+addNewToDo : Model -> Model
+addNewToDo model =
+    let
+        newToDo =
+            Todo 1 model.todoTitle False
+        todoList = 
+            firstTodoList model.todoLists
+        updatedTodoList = { todoList | todos = newToDo :: todoList.todos }
 
+    in
+        { model | todoLists = [updatedTodoList] }
+
+onEnter : Msg -> Attribute Msg
+onEnter msg =
+    let
+        isEnter code =
+            if code == 13 then
+                Json.succeed msg
+            else
+                Json.fail "not ENTER"
+    in
+        on "keydown" (Json.andThen isEnter keyCode)
+
+firstTodoList : List TodoList -> TodoList
+firstTodoList todoLists =
+    case List.head todoLists of
+        Just list ->
+            list
+        Nothing ->
+            TodoList [] "New List"
 
 -- INIT
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( Model [], Cmd.none )
+    ( Model [] "", Cmd.none )
