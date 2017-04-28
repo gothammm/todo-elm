@@ -4,8 +4,12 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import List exposing (..)
-import Html.Lazy exposing (lazy, lazy2)
+
+
+-- import Html.Lazy exposing (lazy, lazy2)
+
 import Json.Decode as Json
+
 
 main =
     Html.program
@@ -30,6 +34,8 @@ type alias Todo =
 type alias TodoList =
     { todos : List Todo
     , name : String
+    , id : Int
+    , savedText: String
     }
 
 
@@ -45,8 +51,10 @@ type alias Model =
 
 type Msg
     = AddTodoList
-    | AddTodo 
+    | AddTodo String
     | UpdateTitle String
+
+
 
 -- UPDATE
 
@@ -55,13 +63,14 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         AddTodoList ->
-            ( addNewTodoList model "Todo List 1", Cmd.none )
+            ( addNewTodoList model "Todo List ", Cmd.none )
 
-        AddTodo ->
+        AddTodo content ->
             ( addNewToDo model, Cmd.none )
 
         UpdateTitle title ->
-            ({ model | todoTitle = title }, Cmd.none )
+            ( { model | todoTitle = title }, Cmd.none )
+
 
 
 -- VIEW
@@ -83,7 +92,7 @@ renderTodoList : TodoList -> Html Msg
 renderTodoList todoList =
     div []
         [ h2 [] [ text todoList.name ]
-        , input [ type_ "text", placeholder "Add Your Todo", onEnter AddTodo, onInput UpdateTitle] []
+        , input [ type_ "text", placeholder "Add Your Todo", onEnter (AddTodo todoList.savedText), onInput UpdateTitle ] []
         , ul [] (List.map renderTodo todoList.todos)
         ]
 
@@ -98,22 +107,29 @@ renderTodo todo =
 addNewTodoList : Model -> String -> Model
 addNewTodoList model name =
     let
+        todoItemNumber =
+            (length model.todoLists) + 1
+
         newToDoLists =
-            (TodoList [] name) :: model.todoLists
+            (TodoList [] (name ++ toString todoItemNumber) todoItemNumber) "" :: model.todoLists
     in
         ({ model | todoLists = newToDoLists })
+
 
 addNewToDo : Model -> Model
 addNewToDo model =
     let
         newToDo =
             Todo 1 model.todoTitle False
-        todoList = 
-            firstTodoList model.todoLists
-        updatedTodoList = { todoList | todos = newToDo :: todoList.todos }
 
+        todoList =
+            firstTodoList model.todoLists
+
+        updatedTodoList =
+            { todoList | todos = newToDo :: todoList.todos }
     in
-        { model | todoLists = [updatedTodoList] }
+        { model | todoLists = [ updatedTodoList ] }
+
 
 onEnter : Msg -> Attribute Msg
 onEnter msg =
@@ -126,13 +142,17 @@ onEnter msg =
     in
         on "keydown" (Json.andThen isEnter keyCode)
 
+
 firstTodoList : List TodoList -> TodoList
 firstTodoList todoLists =
     case List.head todoLists of
         Just list ->
             list
+
         Nothing ->
-            TodoList [] "New List"
+            TodoList [] "New List" 1
+
+
 
 -- INIT
 
